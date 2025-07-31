@@ -1,0 +1,160 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "PowerWorld Auxiliary",
+  "patterns": [
+    {
+      "include": "#script-blocks"
+    },
+    {
+      "include": "#data-blocks"
+    },
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    }
+  ],
+  "repository": {
+    "script-blocks": {
+      "patterns": [
+        {
+          "begin": "(?i)\\b(SCRIPT)\\s+(\\w+)?\\s*\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.script.powerworld-aux"
+            },
+            "2": {
+              "name": "entity.name.function.script.powerworld-aux"
+            }
+          },
+          "name": "meta.script-block.powerworld-aux",
+          "patterns": [
+            {
+              "include": "#script-statements"
+            }
+          ]
+        },
+        {
+          "begin": "(?i)\\b(SCRIPT)\\s*\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.control.script.powerworld-aux"
+            }
+          },
+          "name": "meta.script-block.powerworld-aux",
+          "patterns": [
+            {
+              "include": "#script-statements"
+            }
+          ]
+        }
+      ]
+    },
+    "script-statements": {
+      "patterns": [
+        {
+          "include": "#comments"
+        },
+        {
+          "include": "#strings"
+        },
+        {
+          "include": "#special-keywords"
+        },
+        {
+          "include": "#function-calls"
+        },
+        {
+          "name": "punctuation.terminator.statement.powerworld-aux",
+          "match": ";"
+        }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "name": "entity.name.function.powerworld-aux",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()"
+        }
+      ]
+    },
+    "data-blocks": {
+      "patterns": [
+        {
+          "begin": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*\\(",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.data-block.powerworld-aux"
+            }
+          },
+          "name": "meta.data-block.powerworld-aux",
+          "patterns": [
+            {
+              "include": "#data-fields"
+            },
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#strings"
+            }
+          ]
+        }
+      ]
+    },
+    "data-fields": {
+      "patterns": [
+        {
+          "include": "#strings"
+        },
+        {
+          "include": "#special-keywords"
+        },
+        {
+          "name": "constant.numeric.powerworld-aux", 
+          "match": "\\b\\d+(\\.\\d+)?\\b"
+        },
+        {
+          "name": "constant.language.boolean.powerworld-aux",
+          "match": "\\b(YES|NO)\\b"
+        },
+        {
+          "name": "variable.other.field.powerworld-aux",
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+        }
+      ]
+    },
+    "special-keywords": {
+      "patterns": [
+        {
+          "name": "variable.other.constant.powerworld-aux",
+          "match": "@(BUILDDATE|CASEFILENAME|CASEFILEPATH|CASENAME|DATE|DATETIME|TIME|VERSION|MODELFIELD)\\b"
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.powerworld-aux",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.powerworld-aux",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.powerworld-aux", 
+          "match": "\\\\."
+        }
+      ]
+    }
+  },
+  "scopeName": "source.powerworld-aux"
+}

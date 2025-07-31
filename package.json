@@ -1,0 +1,54 @@
+{
+  "name": "powerworld-language-support",
+  "displayName": "PowerWorld Language Support",
+  "description": "Language support for PowerWorld auxiliary (.aux) files with syntax highlighting and IntelliSense",
+  "version": "0.1.0",
+  "publisher": "eric-bahr",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eric-bahr/vscode-powerworld.git"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "powerworld-aux",
+        "aliases": [
+          "PowerWorld Auxiliary",
+          "aux"
+        ],
+        "extensions": [
+          ".aux"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "powerworld-aux",
+        "scopeName": "source.powerworld-aux",
+        "path": "./syntaxes/powerworld-aux.tmLanguage.json"
+      }
+    ]
+  },
+  "main": "./out/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "echo 'Linting...'",
+    "test": "echo 'No tests specified'"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  }
+}
