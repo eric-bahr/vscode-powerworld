@@ -11,7 +11,6 @@ A comprehensive VS Code extension that provides language support for PowerWorld 
 - SCRIPT block highlighting
 
 ### Language Features
-- **IntelliSense**: Auto-completion for 200+ PowerWorld functions
 - **Hover Information**: Shows field details when hovering over data values
 - **Code Folding**: Collapse SCRIPT and data blocks (includes headers)
 - **Commenting**: Ctrl+/ hotkey support for line comments
@@ -28,7 +27,6 @@ A comprehensive VS Code extension that provides language support for PowerWorld 
 The extension automatically activates when you open `.aux` files. Features include:
 
 - **Syntax highlighting** for PowerWorld syntax
-- **Auto-completion** with Ctrl+Space in SCRIPT blocks
 - **Field validation** with red squiggles for errors
 - **Hover information** showing field names and types
 - **Code folding** to collapse sections
@@ -41,6 +39,12 @@ This extension was developed to improve the PowerWorld .aux file development exp
 
 MIT License - see LICENSE file for details.
 
+## Disclaimer
+
+This extension is an independent project and is not affiliated with, endorsed by, or sponsored by PowerWorld Corporation. PowerWorld® is a registered trademark of PowerWorld Corporation. This extension is developed by the community to enhance the development experience when working with PowerWorld auxiliary files.
+
+The extension author makes no warranties about the accuracy, reliability, or suitability of this extension for any particular purpose. Use at your own risk.
+
 
 ## Requirements
 
@@ -51,6 +55,10 @@ MIT License - see LICENSE file for details.
 - None currently reported
 
 ## Release Notes
+
+### 0.1.5
+
+- Added disclaimer
 
 ### 0.1.4
 
