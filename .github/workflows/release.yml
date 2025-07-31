@@ -15,6 +15,10 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -125,5 +129,9 @@ jobs:
       env:
         OVSX_PAT: ${{ secrets.OVSX_PAT }}
       run: |
-        npm install -g ovsx
-        ovsx publish ${{ steps.package-file.outputs.filename }} -p $OVSX_PAT
+        if [ -n "$OVSX_PAT" ]; then
+          npm install -g ovsx
+          ovsx publish ${{ steps.package-file.outputs.filename }} -p $OVSX_PAT
+        else
+          echo "OVSX_PAT not set, skipping Open VSX publishing"
+        fi
