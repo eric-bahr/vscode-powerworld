@@ -52,11 +52,26 @@ MIT License - see LICENSE file for details.
 
 ## Release Notes
 
+### 0.1.3
+
+- Upgraded to Node.js 20 for better compatibility
+- Added automated extension packaging with VSCE
+- Implemented cross-platform build support
+
+### 0.1.2
+
+- Fixed Node.js 18 compatibility issues with VSCE packaging
+- Upgraded to latest VSCE version for better reliability
+
+### 0.1.1
+
+- Added automatic publishing to VSCode marketplace
+
 ### 0.1.0
 
-- Initial release
+**🎯 Initial Release**
 - Basic syntax highlighting for PowerWorld .aux files
-- IntelliSense completion for PowerWorld functions and keywords
-- Hover documentation for common PowerWorld functions
-- Document symbol provider for navigation
+- Core language server foundation
+- File association and activation
+- Initial validation framework
 
