@@ -1,0 +1,91 @@
+SCRIPT Bad {
+    SolvePowerFlow();
+    WriteAuxFile("test.aux")
+    Test()
+}
+
+Script Bad
+{
+    SolvePowerFlow();
+    WriteAuxFile("test.aux");
+    Test()
+}
+
+Script Good {
+    SolvePowerFlow();
+    WriteAuxFile("test.aux");
+    Test() ;    
+}
+
+// Good
+Script
+{
+    SolvePowerFlow();
+    WriteAuxFile("test.aux");
+    Test();
+}
+
+Script Bad
+{
+OpenCase();
+DoAThing();
+OpenCase();
+DoAThing();
+OpenCase();
+DoAThing();
+OpenCase();
+DoAThing();
+OpenCase()
+DoAThing();
+LogAdd("I did a thing");
+
+Script Good
+{
+OpenCase();
+DoAThing();
+OpenCase();
+DoAThing();
+OpenCase();
+DoAThing();
+OpenCase();
+DoAThing();
+OpenCase();
+DoAThing();
+LogAdd("I did a thing");
+}
+
+
+SCRIPT Bad
+{Delete(ModelCondition,Selected)}
+
+SCRIPT Good
+{Delete(ModelCondition,Selected);}
+
+SCRIPT Good{Delete(ModelCondition,Selected);}
+SCRIPT Bad{Delete(ModelCondition,Selected)}
+
+Test(var1, var2) 
+{
+    1 2
+    3 4
+}
+
+DATA (Test, [var1, var2], AUXDEF, YES)
+{
+    1 2
+    3 4
+    "string1" "string2"
+    "string3" "string4"
+}
+
+
+Test (var1, 
+var2) {
+    1 2
+    3 4
+}
+
+DATA (Test, [var1, var2], AUXDEF, YES) {
+    1 2
+    3 4
+}

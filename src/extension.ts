@@ -1,5 +1,125 @@
 import * as vscode from 'vscode';
 
+// Shared utility functions for detecting SCRIPT and DATA blocks
+class BlockDetectionUtils {
+    static detectScriptBlock(line: string, lineIndex: number, lines: string[]): { 
+        type: 'script-same-line' | 'script-next-line' | 'none', 
+        name: string, 
+        hasContent: boolean,
+        contentStartLine: number,
+        isComplete?: boolean 
+    } {
+        const lineText = line.trim();
+        
+        // Check for SCRIPT blocks with brace on same line: "SCRIPT Test {" or "SCRIPT {"
+        const scriptMatch = lineText.match(/^\s*script\s*(\w+)?\s*\{/i);
+        if (scriptMatch) {
+            const scriptName = scriptMatch[1] || 'Unnamed Script';
+            const openBraceIndex = lineText.indexOf('{');
+            const closeBraceIndex = lineText.lastIndexOf('}');
+            const isComplete = openBraceIndex !== -1 && closeBraceIndex !== -1 && closeBraceIndex > openBraceIndex;
+            const afterBrace = lineText.substring(openBraceIndex + 1);
+            const hasContent = !!(afterBrace && afterBrace.trim() !== '' && !afterBrace.trim().startsWith('}'));
+            
+            return {
+                type: 'script-same-line',
+                name: scriptName,
+                hasContent,
+                contentStartLine: lineIndex,
+                isComplete
+            };
+        }
+        
+        // Check for SCRIPT without brace (brace on next line): "SCRIPT Test" or "SCRIPT"
+        const scriptNoBraceMatch = lineText.match(/^\s*script\s*(\w+)?\s*$/i);
+        if (scriptNoBraceMatch) {
+            const scriptName = scriptNoBraceMatch[1] || 'Unnamed Script';
+            return {
+                type: 'script-next-line',
+                name: scriptName,
+                hasContent: false,
+                contentStartLine: lineIndex + 1
+            };
+        }
+        
+        return { type: 'none', name: '', hasContent: false, contentStartLine: lineIndex };
+    }
+    
+    static detectDataBlock(line: string): { 
+        type: 'data' | 'function' | 'none', 
+        name: string,
+        hasParameters: boolean 
+    } {
+        const lineText = line.trim();
+        
+        // Check for DATA() format like "DATA (CONTINGENCY, [CTGLabel, Category], AUXDEF, YES)"
+        const dataMatch = lineText.match(/^\s*DATA\s*\(/i);
+        if (dataMatch) {
+            return {
+                type: 'data',
+                name: 'DATA',
+                hasParameters: true
+            };
+        }
+        
+        // Check for standard data block pattern like "Test(var1, var2)" or "Test (var1, var2)"
+        // Function definitions should start at the beginning of the line (no indentation)
+        const functionDefMatch = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*\(/);
+        if (functionDefMatch) {
+            const blockName = functionDefMatch[1];
+            // Skip DATA function calls - we handle those above
+            if (blockName.toLowerCase() !== 'data') {
+                return {
+                    type: 'function',
+                    name: blockName,
+                    hasParameters: true
+                };
+            }
+        }
+        
+        return { type: 'none', name: '', hasParameters: false };
+    }
+    
+    static detectSingleLineBlock(line: string): {
+        isComplete: boolean,
+        content: string
+    } {
+        const lineText = line.trim();
+        const openBraceIndex = lineText.indexOf('{');
+        const closeBraceIndex = lineText.lastIndexOf('}');
+        
+        if (openBraceIndex !== -1 && closeBraceIndex !== -1 && closeBraceIndex > openBraceIndex) {
+            const content = lineText.substring(openBraceIndex + 1, closeBraceIndex).trim();
+            return {
+                isComplete: true,
+                content
+            };
+        }
+        
+        return {
+            isComplete: false,
+            content: ''
+        };
+    }
+    
+    static findClosingBrace(lines: string[], startLine: number): number {
+        let braceCount = 0;
+        for (let i = startLine; i < lines.length; i++) {
+            const line = lines[i];
+            for (const char of line) {
+                if (char === '{') braceCount++;
+                if (char === '}') {
+                    braceCount--;
+                    if (braceCount === 0) {
+                        return i;
+                    }
+                }
+            }
+        }
+        return lines.length - 1;
+    }
+}
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('PowerWorld Language Support is now active!');
 
@@ -77,42 +197,92 @@ class PowerWorldScriptSymbolProvider implements vscode.DocumentSymbolProvider {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             
-            // Find SCRIPT blocks (case insensitive)
-            const scriptMatch = line.match(/^\s*script\s*(\w+)?\s*\{/i);
-            if (scriptMatch) {
-                const scriptName = scriptMatch[1] || 'Unnamed Script';
+            // Find SCRIPT blocks using shared utility
+            const scriptInfo = BlockDetectionUtils.detectScriptBlock(line, i, lines);
+            if (scriptInfo.type !== 'none') {
+                const scriptName = scriptInfo.name;
                 const startPos = new vscode.Position(i, 0);
-                const endPos = this.findClosingBrace(lines, i);
+                let endPos: vscode.Position;
+                
+                if (scriptInfo.type === 'script-same-line' && scriptInfo.isComplete) {
+                    // Single-line complete SCRIPT block
+                    endPos = new vscode.Position(i, line.length);
+                } else {
+                    // Multi-line SCRIPT block - find closing brace
+                    const endLine = BlockDetectionUtils.findClosingBrace(lines, i);
+                    endPos = new vscode.Position(endLine, lines[endLine] ? lines[endLine].indexOf('}') + 1 : 0);
+                }
+                
+                // Make sure the selection range is within the full range
+                const fullRange = new vscode.Range(startPos, endPos);
+                const selectionRange = new vscode.Range(startPos, new vscode.Position(i, Math.min(line.length, line.length)));
                 
                 const symbol = new vscode.DocumentSymbol(
                     scriptName,
                     'PowerWorld Script Block',
                     vscode.SymbolKind.Function,
-                    new vscode.Range(startPos, endPos),
-                    new vscode.Range(startPos, new vscode.Position(i, line.length))
+                    fullRange,
+                    selectionRange
+                );
+                symbols.push(symbol);
+                continue;
+            }
+            
+            // Find DATA blocks using shared utility
+            const dataInfo = BlockDetectionUtils.detectDataBlock(line);
+            if (dataInfo.type !== 'none') {
+                const blockName = dataInfo.name;
+                const startPos = new vscode.Position(i, 0);
+                
+                // Find the closing brace for the DATA block
+                let endLine = i;
+                
+                // First, find where the opening brace is
+                let braceLineIndex = i;
+                let foundOpeningBrace = false;
+                
+                // Check if brace is on the same line
+                if (line.includes('{')) {
+                    foundOpeningBrace = true;
+                    braceLineIndex = i;
+                } else {
+                    // Look for opening brace on subsequent lines
+                    for (let k = i + 1; k < Math.min(i + 3, lines.length); k++) {
+                        if (lines[k].trim() === '{' || lines[k].includes('{')) {
+                            braceLineIndex = k;
+                            foundOpeningBrace = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (foundOpeningBrace) {
+                    endLine = BlockDetectionUtils.findClosingBrace(lines, braceLineIndex);
+                } else {
+                    endLine = i; // fallback
+                }
+                
+                const endPos = new vscode.Position(endLine, lines[endLine] ? lines[endLine].length : 0);
+                
+                // Make sure the selection range is within the full range
+                const fullRange = new vscode.Range(startPos, endPos);
+                const selectionRange = new vscode.Range(startPos, new vscode.Position(i, Math.min(line.length, line.length)));
+                
+                const symbolKind = dataInfo.type === 'data' ? vscode.SymbolKind.Object : vscode.SymbolKind.Class;
+                const symbolDetail = dataInfo.type === 'data' ? 'PowerWorld Data Block' : 'PowerWorld Function Block';
+                
+                const symbol = new vscode.DocumentSymbol(
+                    blockName,
+                    symbolDetail,
+                    symbolKind,
+                    fullRange,
+                    selectionRange
                 );
                 symbols.push(symbol);
             }
         }
 
         return symbols;
-    }
-
-    private findClosingBrace(lines: string[], startLine: number): vscode.Position {
-        let braceCount = 0;
-        for (let i = startLine; i < lines.length; i++) {
-            const line = lines[i];
-            for (const char of line) {
-                if (char === '{') braceCount++;
-                if (char === '}') {
-                    braceCount--;
-                    if (braceCount === 0) {
-                        return new vscode.Position(i, line.indexOf('}') + 1);
-                    }
-                }
-            }
-        }
-        return new vscode.Position(startLine, 0); // fallback
     }
 }
 
@@ -129,9 +299,46 @@ class PowerWorldFoldingRangeProvider implements vscode.FoldingRangeProvider {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             
-            // Find PowerWorld data blocks - handle multi-line declarations
-            const dataBlockMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\(/);
-            if (dataBlockMatch) {
+            // Check for SCRIPT blocks using shared utility
+            const scriptInfo = BlockDetectionUtils.detectScriptBlock(line, i, lines);
+            if (scriptInfo.type !== 'none') {
+                let startLine = i;
+                let endLine: number;
+                
+                if (scriptInfo.type === 'script-same-line' && scriptInfo.isComplete) {
+                    // Skip single-line complete SCRIPT blocks - no folding needed
+                    continue;
+                } else if (scriptInfo.type === 'script-same-line') {
+                    // SCRIPT block starts on this line with opening brace
+                    endLine = BlockDetectionUtils.findClosingBrace(lines, i);
+                } else {
+                    // SCRIPT block header, brace is on next line
+                    // Find the opening brace
+                    let braceLineIndex = i + 1;
+                    let foundOpeningBrace = false;
+                    
+                    for (let k = i + 1; k < Math.min(i + 3, lines.length); k++) {
+                        if (lines[k].trim() === '{' || lines[k].includes('{')) {
+                            braceLineIndex = k;
+                            foundOpeningBrace = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!foundOpeningBrace) continue;
+                    
+                    endLine = BlockDetectionUtils.findClosingBrace(lines, braceLineIndex);
+                }
+                
+                if (endLine > startLine) {
+                    ranges.push(new vscode.FoldingRange(startLine, endLine, vscode.FoldingRangeKind.Region));
+                }
+                continue;
+            }
+            
+            // Check for DATA blocks using shared utility
+            const dataInfo = BlockDetectionUtils.detectDataBlock(line);
+            if (dataInfo.type !== 'none') {
                 // Find the closing parenthesis - it might be on a later line
                 let closingParenLine = i;
                 let parenCount = 0;
@@ -175,41 +382,15 @@ class PowerWorldFoldingRangeProvider implements vscode.FoldingRangeProvider {
                 if (!foundOpeningBrace) continue;
                 
                 // Find the closing brace
-                const endLine = this.findClosingBraceLine(lines, braceLineIndex);
+                const endLine = BlockDetectionUtils.findClosingBrace(lines, braceLineIndex);
                 if (endLine > braceLineIndex) {
                     // Create folding range that includes the header line
-                    ranges.push(new vscode.FoldingRange(i, endLine, vscode.FoldingRangeKind.Region));
-                }
-            }
-            
-            // Find SCRIPT blocks
-            const scriptMatch = line.match(/^\s*script\s*(\w+)?\s*\{/i);
-            if (scriptMatch) {
-                const endLine = this.findClosingBraceLine(lines, i);
-                if (endLine > i) {
                     ranges.push(new vscode.FoldingRange(i, endLine, vscode.FoldingRangeKind.Region));
                 }
             }
         }
 
         return ranges;
-    }
-
-    private findClosingBraceLine(lines: string[], startLine: number): number {
-        let braceCount = 0;
-        for (let i = startLine; i < lines.length; i++) {
-            const line = lines[i];
-            for (const char of line) {
-                if (char === '{') braceCount++;
-                if (char === '}') {
-                    braceCount--;
-                    if (braceCount === 0) {
-                        return i;
-                    }
-                }
-            }
-        }
-        return lines.length - 1;
     }
 }
 
@@ -480,6 +661,10 @@ class PowerWorldValidationProvider {
         let insideDataBlock = false;
         let insideScriptBlock = false;
         let currentDataBlockInfo: { blockName: string, parameters: string[] } | undefined;
+        
+        // Track unclosed blocks for validation
+        let unclosedScriptBlock: { line: number, name: string } | undefined;
+        let unclosedDataBlock: { line: number, name: string } | undefined;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -490,23 +675,102 @@ class PowerWorldValidationProvider {
                 continue;
             }
 
-            // Check for SCRIPT keyword
-            if (lineText.toLowerCase() === 'script') {
-                insideScriptBlock = true;
-                insideDataBlock = false;
-                currentDataBlockInfo = undefined;
+            // Check for SCRIPT blocks using shared utility
+            const scriptInfo = BlockDetectionUtils.detectScriptBlock(line, i, lines);
+            if (scriptInfo.type !== 'none') {
+                // If there was a previous unclosed SCRIPT block, report it as an error
+                if (unclosedScriptBlock) {
+                    const diagnostic = new vscode.Diagnostic(
+                        new vscode.Range(
+                            new vscode.Position(unclosedScriptBlock.line, 0),
+                            new vscode.Position(unclosedScriptBlock.line, lines[unclosedScriptBlock.line].length)
+                        ),
+                        `SCRIPT block "${unclosedScriptBlock.name}" is missing a closing brace (})`,
+                        vscode.DiagnosticSeverity.Error
+                    );
+                    diagnostic.source = 'PowerWorld Language Support';
+                    diagnostics.push(diagnostic);
+                }
+                
+                // If there was a previous unclosed DATA block, report it as an error  
+                if (unclosedDataBlock) {
+                    const diagnostic = new vscode.Diagnostic(
+                        new vscode.Range(
+                            new vscode.Position(unclosedDataBlock.line, 0),
+                            new vscode.Position(unclosedDataBlock.line, lines[unclosedDataBlock.line].length)
+                        ),
+                        `DATA block "${unclosedDataBlock.name}" is missing a closing brace (})`,
+                        vscode.DiagnosticSeverity.Error
+                    );
+                    diagnostic.source = 'PowerWorld Language Support';
+                    diagnostics.push(diagnostic);
+                }
+                
+                if (scriptInfo.type === 'script-same-line' && scriptInfo.isComplete) {
+                    // Complete single-line SCRIPT block
+                    const singleLineInfo = BlockDetectionUtils.detectSingleLineBlock(lineText);
+                    if (singleLineInfo.content) {
+                        this.validateScriptLine(singleLineInfo.content, i, diagnostics);
+                    }
+                    // Single-line block is complete, don't set unclosed tracking
+                    insideScriptBlock = false;
+                    insideDataBlock = false;
+                    currentDataBlockInfo = undefined;
+                    unclosedScriptBlock = undefined;
+                    unclosedDataBlock = undefined;
+                } else {
+                    // Incomplete SCRIPT block
+                    insideScriptBlock = true;
+                    insideDataBlock = false;
+                    currentDataBlockInfo = undefined;
+                    unclosedScriptBlock = { line: i, name: scriptInfo.name };
+                    unclosedDataBlock = undefined;
+                    
+                    // Check if there's content after the opening brace on the same line
+                    if (scriptInfo.type === 'script-same-line' && scriptInfo.hasContent) {
+                        const afterBrace = lineText.substring(lineText.indexOf('{') + 1);
+                        if (afterBrace && afterBrace.trim() !== '') {
+                            this.validateScriptLine(afterBrace, i, diagnostics);
+                        }
+                    }
+                }
                 continue;
             }
 
-            // Check for opening brace
-            if (lineText === '{') {
+            // Check for opening brace or single-line block content
+            if (lineText.startsWith('{')) {
                 if (insideScriptBlock) {
-                    // We're entering a SCRIPT block
-                    continue;
+                    // Check if this is a complete single-line block (contains both { and })
+                    const openBraceIndex = lineText.indexOf('{');
+                    const closeBraceIndex = lineText.lastIndexOf('}');
+                    
+                    if (openBraceIndex !== -1 && closeBraceIndex !== -1 && closeBraceIndex > openBraceIndex) {
+                        // This is a complete single-line SCRIPT block content
+                        const contentBetweenBraces = lineText.substring(openBraceIndex + 1, closeBraceIndex).trim();
+                        if (contentBetweenBraces) {
+                            this.validateScriptLine(contentBetweenBraces, i, diagnostics);
+                        }
+                        // Single-line block is complete, clear unclosed tracking
+                        unclosedScriptBlock = undefined;
+                        insideScriptBlock = false;
+                    } else if (lineText.trim() === '{') {
+                        // Just an opening brace, continue in SCRIPT block
+                        continue;
+                    } else {
+                        // Opening brace with content but no closing brace
+                        const afterBrace = lineText.substring(lineText.indexOf('{') + 1);
+                        if (afterBrace.trim() !== '') {
+                            this.validateScriptLine(afterBrace, i, diagnostics);
+                        }
+                    }
                 } else {
                     // We're entering a data block
                     insideDataBlock = true;
                     insideScriptBlock = false;
+                    if (currentDataBlockInfo) {
+                        unclosedDataBlock = { line: i, name: currentDataBlockInfo.blockName };
+                        unclosedScriptBlock = undefined;
+                    }
                 }
                 continue;
             }
@@ -516,14 +780,51 @@ class PowerWorldValidationProvider {
                 insideDataBlock = false;
                 insideScriptBlock = false;
                 currentDataBlockInfo = undefined;
+                // Clear unclosed block tracking when we find a closing brace
+                unclosedScriptBlock = undefined;
+                unclosedDataBlock = undefined;
                 continue;
             }
 
-            // Check for function definition lines (start of new data block) - this should come before SCRIPT validation
-            if (lineText.match(/^\s*[A-Za-z_][A-Za-z0-9_]*\s*\(/) || lineText.match(/^\s*DATA\s*\(/i)) {
+            // Check for function definition lines (start of new data block) using shared utility
+            const dataInfo = BlockDetectionUtils.detectDataBlock(line);
+            
+            // Only treat as function definition if we're not already inside a SCRIPT or DATA block and line doesn't end with semicolon
+            if (dataInfo.type !== 'none' && !lineText.trim().endsWith(';') && !insideScriptBlock && !insideDataBlock) {
+                // If there was a previous unclosed SCRIPT block, report it as an error
+                if (unclosedScriptBlock) {
+                    const diagnostic = new vscode.Diagnostic(
+                        new vscode.Range(
+                            new vscode.Position(unclosedScriptBlock.line, 0),
+                            new vscode.Position(unclosedScriptBlock.line, lines[unclosedScriptBlock.line].length)
+                        ),
+                        `SCRIPT block "${unclosedScriptBlock.name}" is missing a closing brace (})`,
+                        vscode.DiagnosticSeverity.Error
+                    );
+                    diagnostic.source = 'PowerWorld Language Support';
+                    diagnostics.push(diagnostic);
+                }
+                
+                // If there was a previous unclosed DATA block, report it as an error
+                if (unclosedDataBlock) {
+                    const diagnostic = new vscode.Diagnostic(
+                        new vscode.Range(
+                            new vscode.Position(unclosedDataBlock.line, 0),
+                            new vscode.Position(unclosedDataBlock.line, lines[unclosedDataBlock.line].length)
+                        ),
+                        `DATA block "${unclosedDataBlock.name}" is missing a closing brace (})`,
+                        vscode.DiagnosticSeverity.Error
+                    );
+                    diagnostic.source = 'PowerWorld Language Support';
+                    diagnostics.push(diagnostic);
+                }
+                
                 insideDataBlock = false;
                 insideScriptBlock = false;
                 currentDataBlockInfo = this.findDataBlockHeader(document, i);
+                // Reset unclosed block tracking when starting a new block
+                unclosedScriptBlock = undefined;
+                unclosedDataBlock = undefined;
                 continue;
             }
 
@@ -598,7 +899,34 @@ class PowerWorldValidationProvider {
                 diagnostics.push(diagnostic);
             }
         }
-
+        
+        // Check for unclosed blocks at the end of the document
+        if (unclosedScriptBlock) {
+            const diagnostic = new vscode.Diagnostic(
+                new vscode.Range(
+                    new vscode.Position(unclosedScriptBlock.line, 0),
+                    new vscode.Position(unclosedScriptBlock.line, lines[unclosedScriptBlock.line].length)
+                ),
+                `SCRIPT block "${unclosedScriptBlock.name}" is missing a closing brace (})`,
+                vscode.DiagnosticSeverity.Error
+            );
+            diagnostic.source = 'PowerWorld Language Support';
+            diagnostics.push(diagnostic);
+        }
+        
+        if (unclosedDataBlock) {
+            const diagnostic = new vscode.Diagnostic(
+                new vscode.Range(
+                    new vscode.Position(unclosedDataBlock.line, 0),
+                    new vscode.Position(unclosedDataBlock.line, lines[unclosedDataBlock.line].length)
+                ),
+                `DATA block "${unclosedDataBlock.name}" is missing a closing brace (})`,
+                vscode.DiagnosticSeverity.Error
+            );
+            diagnostic.source = 'PowerWorld Language Support';
+            diagnostics.push(diagnostic);
+        }
+        
         this.diagnosticCollection.set(document.uri, diagnostics);
     }
 
@@ -632,11 +960,18 @@ class PowerWorldValidationProvider {
         // Remove end-of-line comments before checking for semicolon
         const lineWithoutComments = this.removeEndOfLineComment(lineText);
         
+        // Handle content within braces for single-line SCRIPT blocks
+        let contentToValidate = lineWithoutComments;
+        if (lineWithoutComments.startsWith('{') && lineWithoutComments.endsWith('}')) {
+            // Extract content between braces: {Delete(...)} -> Delete(...)
+            contentToValidate = lineWithoutComments.slice(1, -1).trim();
+        }
+        
         // Check if this looks like a function call (contains parentheses and arguments)
         const functionCallPattern = /^[A-Za-z_][A-Za-z0-9_]*\s*\(/;
-        if (functionCallPattern.test(lineWithoutComments)) {
+        if (functionCallPattern.test(contentToValidate)) {
             // Check if the line ends with a semicolon
-            if (!lineWithoutComments.endsWith(';')) {
+            if (!contentToValidate.endsWith(';')) {
                 // Find the position where the semicolon should be
                 const originalLineWithoutComments = line.substring(0, line.lastIndexOf('//') >= 0 ? line.lastIndexOf('//') : line.length).trimEnd();
                 const semicolonPos = originalLineWithoutComments.length;

@@ -18,4 +18,4 @@ SETUP.md
 node_modules/**
 .git/**
 *.vsix
-build.bat
+build_local.bat

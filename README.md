@@ -56,6 +56,11 @@ The extension author makes no warranties about the accuracy, reliability, or sui
 
 ## Release Notes
 
+### 0.1.6
+
+- Fixed issues with some Scipt/Data blocks not being properly recognized.
+- Consolidated some of the Script/Data block logic
+
 ### 0.1.5
 
 - Added disclaimer

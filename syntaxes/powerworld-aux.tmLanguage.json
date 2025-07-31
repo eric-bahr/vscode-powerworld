@@ -23,10 +23,10 @@
           "end": "\\}",
           "beginCaptures": {
             "1": {
-              "name": "keyword.control.script.powerworld-aux"
+              "name": "keyword.other.powerworld-aux"
             },
             "2": {
-              "name": "entity.name.function.script.powerworld-aux"
+              "name": "entity.name.type.powerworld-aux"
             }
           },
           "name": "meta.script-block.powerworld-aux",
@@ -41,7 +41,40 @@
           "end": "\\}",
           "beginCaptures": {
             "1": {
-              "name": "keyword.control.script.powerworld-aux"
+              "name": "keyword.other.powerworld-aux"
+            }
+          },
+          "name": "meta.script-block.powerworld-aux",
+          "patterns": [
+            {
+              "include": "#script-statements"
+            }
+          ]
+        },
+        {
+          "begin": "(?i)^\\s*(SCRIPT)\\s+(\\w+)?\\s*$",
+          "end": "(?=\\})",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.other.powerworld-aux"
+            },
+            "2": {
+              "name": "entity.name.type.powerworld-aux"
+            }
+          },
+          "name": "meta.script-block.powerworld-aux",
+          "patterns": [
+            {
+              "include": "#script-statements"
+            }
+          ]
+        },
+        {
+          "begin": "(?i)^\\s*(SCRIPT)\\s*$",
+          "end": "(?=\\})",
+          "beginCaptures": {
+            "1": {
+              "name": "keyword.other.powerworld-aux"
             }
           },
           "name": "meta.script-block.powerworld-aux",
@@ -84,15 +117,32 @@
     "data-blocks": {
       "patterns": [
         {
-          "begin": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*\\(",
+          "begin": "(?i)\\b(DATA)\\s*\\(\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*,\\s*\\[",
           "end": "\\}",
           "beginCaptures": {
             "1": {
-              "name": "storage.type.data-block.powerworld-aux"
+              "name": "keyword.other.powerworld-aux"
+            },
+            "2": {
+              "name": "entity.name.type.powerworld-aux"
             }
           },
           "name": "meta.data-block.powerworld-aux",
           "patterns": [
+            {
+              "begin": "\\G",
+              "end": "\\]",
+              "patterns": [
+                {
+                  "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\b",
+                  "name": "variable.parameter.powerworld-aux"
+                },
+                {
+                  "match": ",",
+                  "name": "punctuation.separator.powerworld-aux"
+                }
+              ]
+            },
             {
               "include": "#data-fields"
             },
@@ -103,6 +153,49 @@
               "include": "#strings"
             }
           ]
+        },
+        {
+          "begin": "^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*\\(",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": {
+              "name": "entity.name.type.powerworld-aux"
+            }
+          },
+          "name": "meta.data-block.powerworld-aux",
+          "patterns": [
+            {
+              "begin": "\\G",
+              "end": "\\)",
+              "patterns": [
+                {
+                  "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\b",
+                  "name": "variable.parameter.powerworld-aux"
+                },
+                {
+                  "match": ",",
+                  "name": "punctuation.separator.powerworld-aux"
+                }
+              ]
+            },
+            {
+              "include": "#data-fields"
+            },
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#strings"
+            }
+          ]
+        }
+      ]
+    },
+    "variables": {
+      "patterns": [
+        {
+          "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b",
+          "name": "variable.parameter.powerworld-aux"
         }
       ]
     },
