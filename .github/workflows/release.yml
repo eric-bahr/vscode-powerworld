@@ -26,7 +26,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
         cache: 'npm'
         
     - name: Install dependencies
@@ -36,7 +36,7 @@ jobs:
       run: npm run compile
       
     - name: Install VSCE
-      run: npm install -g @vscode/vsce
+      run: npm install -g @vscode/vsce@latest
       
     - name: Extract version from tag (for tag-based releases)
       if: startsWith(github.ref, 'refs/tags/v')
