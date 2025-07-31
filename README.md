@@ -52,6 +52,10 @@ MIT License - see LICENSE file for details.
 
 ## Release Notes
 
+### 0.1.4
+
+- Updated documentation
+
 ### 0.1.3
 
 - Upgraded to Node.js 20 for better compatibility
