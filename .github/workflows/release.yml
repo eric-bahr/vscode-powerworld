@@ -38,6 +38,15 @@ jobs:
     - name: Install VSCE
       run: npm install -g @vscode/vsce
       
+    - name: Extract version from tag (for tag-based releases)
+      if: startsWith(github.ref, 'refs/tags/v')
+      id: tag-version
+      run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+    - name: Update package.json version to match tag
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: npm version ${{ steps.tag-version.outputs.version }} --no-git-tag-version
+      
     - name: Update version in package.json (manual trigger)
       if: github.event.inputs.version
       run: npm version ${{ github.event.inputs.version }} --no-git-tag-version

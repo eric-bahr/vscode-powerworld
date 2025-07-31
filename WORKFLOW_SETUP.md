@@ -53,6 +53,8 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+**Important**: The workflow will automatically update your `package.json` to match the tag version. So if you push tag `v1.2.0`, it will set `package.json` version to `1.2.0` before building.
+
 This automatically:
 - Builds the extension
 - Creates a GitHub release
@@ -72,9 +74,9 @@ This automatically:
 ## 🎯 Workflow Features
 
 ### Automatic Version Management
-- Reads version from `package.json`
-- Creates matching Git tags
-- Updates package version for manual releases
+- **Tag-based releases**: Updates `package.json` to match the git tag version
+- **Manual releases**: Updates `package.json` to the version you specify
+- **Ensures consistency**: Git tag, package.json, and release version always match
 
 ### Comprehensive Release Notes
 - Professional changelog format
@@ -116,6 +118,10 @@ This automatically:
 
 **❌ "Version already exists"**
 - Solution: Increment version number in `package.json` or use a new tag
+
+**❌ "Version mismatch"**
+- The workflow automatically syncs `package.json` version with git tags
+- If you see issues, ensure your tag follows format `v1.2.3` (with 'v' prefix)
 
 **❌ "Compilation failed"**
 - Solution: Run `npm run compile` locally to check for TypeScript errors
